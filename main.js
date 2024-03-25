@@ -133,27 +133,33 @@ class Box extends THREE.Mesh {
   cube.castShadow = true
   scene.add(cube)
 
- // Carregar a textura da ruaa
- const texturaChao = new THREE.TextureLoader();
- const chaoTexture = texturaChao.load('rua/scene.gltf');
- 
- const groundMaterial = new THREE.MeshStandardMaterial({ map: chaoTexture });
- 
- // Defina o novo chão com a textura aplicada
- const ground = new Box({
-   width: 10,
-   height: 0.5,
-   depth: 50,
-   color: '#0369a1',
-   material: groundMaterial,
-   position: {
-     x: 0,
-     y: -2,
-     z: 0
-   }
- });
- ground.receiveShadow = true;
- scene.add(ground);
+  // const ground = new Box({
+  //   width: 10,
+  //   height: 0.5,
+  //   depth: 50,
+  //   color: '#0369a1',
+  //   position: {
+  //     x: 0,
+  //     y: -2,
+  //     z: 0
+  //   }
+  // })
+  
+  // ground.receiveShadow = true
+  // scene.add(ground)
+  
+  //textura de rua
+  const texturaRua = new THREE.TextureLoader().load('assets/rua/78be92c3ba99c5d1399114814b7f7006.jpg');
+  const rua = new THREE.MeshStandardMaterial({ map: texturaRua });
+  
+  const largura = 10; // Largura do retângulo
+  const altura = 50; // Altura do retângulo
+  
+  const ground = new THREE.Mesh(new THREE.BoxGeometry(largura, 0.5, altura), rua);
+  ground.position.set(0, -2, 0); // Define a posição do retângulo
+  ground.receiveShadow = true;
+
+  scene.add(ground);
 
   const light = new THREE.DirectionalLight(0xffffff, 1)
   light.position.y = 3
