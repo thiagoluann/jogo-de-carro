@@ -133,7 +133,7 @@ class Box extends THREE.Mesh {
   cube.castShadow = true
   scene.add(cube)
 
- // Carregar a textura da rua
+ // Carregar a textura da ruaa
  const texturaChao = new THREE.TextureLoader();
  const chaoTexture = texturaChao.load('rua/scene.gltf');
  
