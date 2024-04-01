@@ -1,288 +1,244 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(4.61, 2.74, 8);
 
-const renderer = new THREE.WebGLRenderer({
-  alpha: true,
-  antialias: true
-});
-renderer.shadowMap.enabled = true;
+
+// Luzes do ambiente
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(200, 500, 300);
+scene.add(dirLight);
+
+// Camara
+const aspectRatio = window.innerWidth / window.innerHeight;
+const cameraWidth = 150;
+const cameraHeight = cameraWidth / aspectRatio;
+
+const camera = new THREE.OrthographicCamera(
+  cameraWidth / -2, // esquerda
+  cameraWidth / 2, // direita
+  cameraHeight / 2, // cima
+  cameraHeight / -2, // baixo
+  0, // plano perto
+  1000 // plano longe
+);
+camera.position.set(200, 200, 200);
+camera.lookAt(0, 10, 0);
+
+// Cores
+const green = 0x08A045;
+const blue = 0x006FB9;
+const yellow = 0xEFCC00;
+const black = 0x000000;
+const white = 0xFFFFFF;
+const red = 0xa52523;
+
+
+// Pista
+const road = createRoad();
+scene.add(road);
+
+// Carros
+const car = createCar();
+scene.add(car);
+
+const ecar1 = createEnemyCar(blue);
+const ecar2 = createEnemyCar(green);
+const ecar3 = createEnemyCar(yellow);
+
+ecar1.position.x = -100;
+ecar2.position.x = -150;
+ecar3.position.x = -130;
+
+ecar1.position.z = -20;
+ecar2.position.z = 20;
+ecar3.position.z = 0;
+
+
+scene.add(ecar1);
+scene.add(ecar2);
+scene.add(ecar3);
+
+
+// renderizar
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.render(scene, camera);
+
+ var controls = new OrbitControls( camera, renderer.domElement );
+   
+// Animação
+renderer.setAnimationLoop(() => {
+  carColision(car, ecar1, 0.2, -120);
+  carColision(car, ecar2, 0.4, -140);
+  carColision(car, ecar3, 0.2, -150);
+  renderer.render(scene, camera);
+});
+
 document.body.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
+// Carro principal
+function createCar() {
+  const car = new THREE.Group();
 
-// const Rua = new GLTFLoader();
+  const backWheel = createWheels();
+  backWheel.position.y = 1;
+  backWheel.position.x = -3;
+  car.add(backWheel);
 
-// Rua.load('rua/scene.gltf', (rua)=>{
-//   rua.scene.scale.set(1, 1, 1);
-//   scene.add(rua.scene);
-// })
+  const frontWheel = createWheels();
+  frontWheel.position.y = 1;
+  frontWheel.position.x = 3;
+  car.add(frontWheel);
 
-class Box extends THREE.Mesh {
-    constructor({
-      width,
-      height,
-      depth,
-      color = '#00ff00',
-      velocity = {
-        x: 0,
-        y: 0,
-        z: 0
-      },
-      position = {
-        x: 0,
-        y: 0,
-        z: 0
-      },
-      zAcceleration = false
-    }) {
-      super(
-        new THREE.BoxGeometry(width, height, depth),
-        new THREE.MeshStandardMaterial({ color })
-      )
-
-      this.width = width
-      this.height = height
-      this.depth = depth
-
-      this.position.set(position.x, position.y, position.z)
-
-      this.right = this.position.x + this.width / 2
-      this.left = this.position.x - this.width / 2
-
-      this.bottom = this.position.y - this.height / 2
-      this.top = this.position.y + this.height / 2
-
-      this.front = this.position.z + this.depth / 2
-      this.back = this.position.z - this.depth / 2
-
-      this.velocity = velocity
-      this.gravity = -0.002
-
-      this.zAcceleration = zAcceleration
-    }
-
-    updateSides() {
-      this.right = this.position.x + this.width / 2
-      this.left = this.position.x - this.width / 2
-
-      this.bottom = this.position.y - this.height / 2
-      this.top = this.position.y + this.height / 2
-
-      this.front = this.position.z + this.depth / 2
-      this.back = this.position.z - this.depth / 2
-    }
-
-    update(ground) {
-      this.updateSides()
-
-      if (this.zAcceleration) this.velocity.z += 0.0003
-
-      this.position.x += this.velocity.x
-      this.position.z += this.velocity.z
-
-      this.applyGravity(ground)
-    }
-
-    applyGravity(ground) {
-      this.velocity.y += this.gravity
-
-      // this is where we hit the ground
-      if (
-        boxCollision({
-          box1: this,
-          box2: ground
-        })
-      ) {
-        const friction = 0.5
-        this.velocity.y *= friction
-        this.velocity.y = -this.velocity.y
-      } else this.position.y += this.velocity.y
-    }
-  }
-
-  function boxCollision({ box1, box2 }) {
-    const xCollision = box1.right >= box2.left && box1.left <= box2.right
-    const yCollision =
-      box1.bottom + box1.velocity.y <= box2.top && box1.top >= box2.bottom
-    const zCollision = box1.front >= box2.back && box1.back <= box2.front
-
-    return xCollision && yCollision && zCollision
-  }
-
-  const cube = new Box({
-    width: 1,
-    height: 1,
-    depth: 1,
-    velocity: {
-      x: 0,
-      y: -0.01,
-      z: 0
-    }
-  })
-  cube.castShadow = true
-  scene.add(cube)
-
-  // const ground = new Box({
-  //   width: 10,
-  //   height: 0.5,
-  //   depth: 50,
-  //   color: '#0369a1',
-  //   position: {
-  //     x: 0,
-  //     y: -2,
-  //     z: 0
-  //   }
-  // })
+  const main = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 2, 5),
+    new THREE.MeshLambertMaterial({ color: red })
+  );
+  main.position.y = 2;
+  car.add(main);
   
-  // ground.receiveShadow = true
-  // scene.add(ground)
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 1.5, 4.5),
+    new THREE.MeshLambertMaterial({ color: 0xffffff })
+  );
   
-  //textura de rua
-  const texturaRua = new THREE.TextureLoader().load('assets/rua/78be92c3ba99c5d1399114814b7f7006.jpg');
-  const rua = new THREE.MeshStandardMaterial({ map: texturaRua });
   
-  const largura = 10; // Largura do retângulo
-  const altura = 50; // Altura do retângulo
+  cabin.position.x = 2;
+  cabin.position.y = 3;
+  car.add(cabin);
+
+  return car;
+}
+
+// Criar carro na contramão
+function createEnemyCar(color) {
+  const car = new THREE.Group();
+
+  // Pneus 
+  const backWheel = createWheels();
+  backWheel.position.y = 1;
+  backWheel.position.x = -3;
+  car.add(backWheel);
+
+  const frontWheel = createWheels();
+  frontWheel.position.y = 1;
+  frontWheel.position.x = 3;
+  car.add(frontWheel);
+
+  // Corpo do carro
+  const main = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 2, 5),
+    new THREE.MeshLambertMaterial({ color: color })
+  );
+  main.position.y = 2;
+  car.add(main);
   
-  const ground = new THREE.Mesh(new THREE.BoxGeometry(largura, 0.5, altura), rua);
-  ground.position.set(0, -2, 0); // Define a posição do retângulo
-  ground.receiveShadow = true;
+  // Bulé do carro
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 1.5, 4.5),
+    new THREE.MeshLambertMaterial({ color: 0xffffff })
+  );
+  
+  
+  cabin.position.x = -2;
+  cabin.position.y = 3;
+  car.add(cabin);
 
-  scene.add(ground);
+  return car;
+}
 
-  const light = new THREE.DirectionalLight(0xffffff, 1)
-  light.position.y = 3
-  light.position.z = 1
-  light.castShadow = true
-  scene.add(light)
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+function createWheels() {
+  // Raio  = 1.5
+  const geometry = new THREE.CylinderGeometry( 1.5, 1.5, 6, 20); 
+  // Rotacioando o eixo X em 90º
+  geometry.rotateX( Math.PI / 2 ); // orient along z-axis - required
+  const material = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const wheel = new THREE.Mesh(geometry, material);
+  
+  return wheel;
+}
 
-  camera.position.z = 5
-  console.log(ground.top)
-  console.log(cube.bottom)
+function createRoad() {
+  const geometry = new THREE.BoxGeometry(300, 60, 1);
+  // Rotacionando o eixo X em 90º 
+  geometry.rotateX( Math.PI / 2 );
+  const roadTexture = getRoadTexture();
 
-  const keys = {
-    a: {
-      pressed: false
-    },
-    d: {
-      pressed: false
-    },
-    s: {
-      pressed: false
-    },
-    w: {
-      pressed: false
-    }
+  const material = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const line = new THREE.MeshLambertMaterial({ map: roadTexture });
+  
+    var materials = [ material, material, material, material,material, line ];
+
+  const road = new THREE.Mesh(geometry, materials);
+  
+  road.position.x = 0;
+  road.position.y = -1;
+  
+  return road;
+}
+
+function getRoadTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 300;
+  canvas.height = 60;
+  const context = canvas.getContext("2d");
+
+  // Desenhando as linhas da estrada
+  context.fillStyle = '#ff00ff';
+  for (var i = 0; i < 300; i=i+15) {
+     context.fillRect(i, 20, 10, 1);
+   }
+  for (var i = 0; i < 300; i=i+15) {
+     context.fillRect(i, 40, 10, 1);
+   }
+  
+  // Meio fio da pista
+  context.strokeStyle = '#ff00ff';
+  context.strokeRect(0, 0, canvas.width, canvas.height);
+
+  
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Usar as setas para mudar de posição
+window.addEventListener('keydown', function(e){
+  if ((e.code === 'ArrowLeft') && (car.position.z === 0))
+    car.position.z = 20; // Ta no centro, vai para a direita
+  if ((e.code === 'ArrowLeft') && (car.position.z === -20))
+    car.position.z = 0;  // Ta na esquerda, vai para o centro
+  if ((e.code === 'ArrowRight') && (car.position.z === 0))
+    car.position.z = -20; // Ta no centro, vai para a esquerda
+  if ((e.code === 'ArrowRight') && (car.position.z === 20))
+    car.position.z = 0;  // Ta na direita, vai para o centro
+  if ((e.code === 'ArrowUp'))
+     car.position.x -= 0.9; // Acelera Rubinho
+});
+
+ function carColision(mycar, enemycar,velocity, reset) {
+   const posX1 = mycar.position.x;
+   const posX2 = enemycar.position.x;
+   const posZ1 = mycar.position.z;
+   const posZ2 = enemycar.position.z;
+   
+   const posX1_right = mycar.position.x + 5;
+   const posX1_left = mycar.position.x - 5;
+   const posX2_right = enemycar.position.x + 5;
+   const posX2_left = enemycar.position.x - 5;
+   
+   
+   if(posX1_right > posX2_left && posX1_left < posX2_right && posZ1 === posZ2 ) {
+       mycar.rotation.y = -0.5;
+       enemycar.rotation.y = 0.5;
+       document.getElementById('output').innerHTML = "Game Over";
+   } else {  
+     enemycar.position.x +=velocity;  
+     // Carro volta pra pista
+     if (posX2_left > 150){ enemycar.position.x = reset; }
+     }
   }
-
-  window.addEventListener('keydown', (event) => {
-    switch (event.code) {
-      case 'KeyA':
-        keys.a.pressed = true
-        break
-      case 'KeyD':
-        keys.d.pressed = true
-        break
-      case 'KeyS':
-        keys.s.pressed = true
-        break
-      case 'KeyW':
-        keys.w.pressed = true
-        break
-      case 'Space':
-        cube.velocity.y = 0.08
-        break
-    }
-  })
-
-  window.addEventListener('keyup', (event) => {
-    switch (event.code) {
-      case 'KeyA':
-        keys.a.pressed = false
-        break
-      case 'KeyD':
-        keys.d.pressed = false
-        break
-      case 'KeyS':
-        keys.s.pressed = false
-        break
-      case 'KeyW':
-        keys.w.pressed = false
-        break
-    }
-  })
-
-  const enemies = []
-
-  let frames = 0
-  let spawnRate = 200
-  function animate() {
-    const animationId = requestAnimationFrame(animate)
-    renderer.render(scene, camera)
-
-    // movement code
-    cube.velocity.x = 0
-    cube.velocity.z = 0
-    if (keys.a.pressed) cube.velocity.x = -0.05
-    else if (keys.d.pressed) cube.velocity.x = 0.05
-
-    if (keys.s.pressed) cube.velocity.z = 0.05
-    else if (keys.w.pressed) cube.velocity.z = -0.05
-
-    cube.update(ground)
-    enemies.forEach((enemy) => {
-      enemy.update(ground)
-      if (
-        boxCollision({
-          box1: cube,
-          box2: enemy
-        })
-      ) {
-        cancelAnimationFrame(animationId)
-      }
-    })
-
-    if (frames % spawnRate === 0) {
-      if (spawnRate > 20) spawnRate -= 20
-
-      const enemy = new Box({
-        width: 1,
-        height: 1,
-        depth: 1,
-        position: {
-          x: (Math.random() - 0.5) * 10,
-          y: 0,
-          z: -20
-        },
-        velocity: {
-          x: 0,
-          y: 0,
-          z: 0.005
-        },
-        color: 'red',
-        zAcceleration: true
-      })
-      enemy.castShadow = true
-      scene.add(enemy)
-      enemies.push(enemy)
-    }
-
-    frames++
-    // cube.position.y += -0.01
-    // cube.rotation.x += 0.01
-    // cube.rotation.y += 0.01
-  }
-  animate()
